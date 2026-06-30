@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { PostModel, ReelModel, MessageModel } from "../lib/mongodb";
+import { logger } from "../lib/logger";
 
 const router = express.Router();
 
@@ -39,6 +40,7 @@ router.post("/posts", async (req: Request, res: Response) => {
     const post = await PostModel.create(req.body);
     res.json(post);
   } catch (err) {
+    logger.error({ err }, "Failed to create post");
     res.status(500).json({ error: "Failed to create post" });
   }
 });
@@ -47,36 +49,48 @@ router.get("/posts", async (_req: Request, res: Response) => {
   try {
     const posts = await PostModel.find().sort({ timestamp: -1 }).limit(50);
     res.json(posts);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch posts");
     res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
 
 router.post("/posts/:id/like", async (req: Request, res: Response) => {
-  const { userId } = req.body;
-  const post = await PostModel.findById(req.params.id);
-  if (!post) { res.status(404).json({ error: "Not found" }); return; }
-  const idx = post.likedByIds.indexOf(userId);
-  if (idx === -1) post.likedByIds.push(userId);
-  else post.likedByIds.splice(idx, 1);
-  await post.save();
-  res.json(post);
+  try {
+    const { userId } = req.body;
+    const post = await PostModel.findById(req.params.id);
+    if (!post) { res.status(404).json({ error: "Not found" }); return; }
+    const idx = post.likedByIds.indexOf(userId);
+    if (idx === -1) post.likedByIds.push(userId);
+    else post.likedByIds.splice(idx, 1);
+    await post.save();
+    res.json(post);
+  } catch (err) {
+    logger.error({ err, postId: req.params.id }, "Failed to toggle post like");
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
 });
 
 router.post("/posts/:id/comment", async (req: Request, res: Response) => {
-  const post = await PostModel.findById(req.params.id);
-  if (!post) { res.status(404).json({ error: "Not found" }); return; }
-  const comment = { id: `c${Date.now()}`, ...req.body, timestamp: Date.now() };
-  post.comments.push(comment);
-  await post.save();
-  res.json(post);
+  try {
+    const post = await PostModel.findById(req.params.id);
+    if (!post) { res.status(404).json({ error: "Not found" }); return; }
+    const comment = { id: `c${Date.now()}`, ...req.body, timestamp: Date.now() };
+    post.comments.push(comment);
+    await post.save();
+    res.json(post);
+  } catch (err) {
+    logger.error({ err, postId: req.params.id }, "Failed to add comment");
+    res.status(500).json({ error: "Failed to add comment" });
+  }
 });
 
 router.post("/reels", async (req: Request, res: Response) => {
   try {
     const reel = await ReelModel.create(req.body);
     res.json(reel);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Failed to create reel");
     res.status(500).json({ error: "Failed to create reel" });
   }
 });
@@ -85,32 +99,44 @@ router.get("/reels", async (_req: Request, res: Response) => {
   try {
     const reels = await ReelModel.find().sort({ viralScore: -1 }).limit(50);
     res.json(reels);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch reels");
     res.status(500).json({ error: "Failed to fetch reels" });
   }
 });
 
 router.post("/reels/:id/like", async (req: Request, res: Response) => {
-  const { userId } = req.body;
-  const reel = await ReelModel.findById(req.params.id);
-  if (!reel) { res.status(404).json({ error: "Not found" }); return; }
-  const idx = reel.likedByIds.indexOf(userId);
-  if (idx === -1) reel.likedByIds.push(userId);
-  else reel.likedByIds.splice(idx, 1);
-  await reel.save();
-  res.json(reel);
+  try {
+    const { userId } = req.body;
+    const reel = await ReelModel.findById(req.params.id);
+    if (!reel) { res.status(404).json({ error: "Not found" }); return; }
+    const idx = reel.likedByIds.indexOf(userId);
+    if (idx === -1) reel.likedByIds.push(userId);
+    else reel.likedByIds.splice(idx, 1);
+    await reel.save();
+    res.json(reel);
+  } catch (err) {
+    logger.error({ err, reelId: req.params.id }, "Failed to toggle reel like");
+    res.status(500).json({ error: "Failed to toggle like" });
+  }
 });
 
 router.get("/messages/:conversationId", async (req: Request, res: Response) => {
-  const messages = await MessageModel.find({ conversationId: req.params.conversationId }).sort({ timestamp: 1 });
-  res.json(messages);
+  try {
+    const messages = await MessageModel.find({ conversationId: req.params.conversationId }).sort({ timestamp: 1 });
+    res.json(messages);
+  } catch (err) {
+    logger.error({ err, conversationId: req.params.conversationId }, "Failed to fetch messages");
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
 });
 
 router.post("/messages", async (req: Request, res: Response) => {
   try {
     const msg = await MessageModel.create(req.body);
     res.json(msg);
-  } catch {
+  } catch (err) {
+    logger.error({ err }, "Failed to save message");
     res.status(500).json({ error: "Failed to save message" });
   }
 });
